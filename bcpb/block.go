@@ -3,10 +3,11 @@ package bcpb
 import (
 	"encoding/binary"
 	"errors"
+	"log"
 	"math"
 	"time"
 
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 const nonceMax = math.MaxUint64
@@ -21,11 +22,20 @@ var (
 	// ErrSignerNotInBlock is returned when a signer signs a block but is not
 	// a participant block signer
 	ErrSignerNotInBlock = errors.New("signer not in block")
+	// ErrSignerAlreadySigned is returned when a signer tries to sign when they
+	// already have
+	ErrSignerAlreadySigned = errors.New("signer already signed")
 )
 
 // Proposer returns the public key of the block proposer
 func (header *BlockHeader) Proposer() PublicKey {
 	return header.Signers[header.ProposerIndex]
+}
+
+// HasSigners returns true if the block has the number of signers as specified
+// by N
+func (header *BlockHeader) HasSigners() bool {
+	return int(header.N) == len(header.Signers)
 }
 
 // SignerIndex returns the index in the signers list given the public key
@@ -54,6 +64,7 @@ func (header *BlockHeader) Hash(h hasher.Hasher) Digest {
 
 	binary.Write(hf, binary.BigEndian, header.ProposerIndex)
 	binary.Write(hf, binary.BigEndian, header.N)
+	binary.Write(hf, binary.BigEndian, header.S)
 	binary.Write(hf, binary.BigEndian, header.Q)
 
 	sh := hf.Sum(nil)
@@ -73,6 +84,53 @@ func NewBlock() *Block {
 	}
 }
 
+// SetHash sets the block hash using the given hash function
+func (blk *Block) SetHash(h hasher.Hasher) {
+	blk.Header.Root, _ = Digests(blk.Txs).Root()
+	blk.Digest = blk.Header.Hash(h)
+}
+
+// SignatureCount returns the number of signatures in the block.  This is
+// different from the S value which represents the 'required' signatures
+func (blk *Block) SignatureCount() int32 {
+	if len(blk.Signatures) == 0 {
+		return 0
+	}
+
+	var c int32
+	for i := range blk.Signatures {
+		if len(blk.Signatures[i]) > 0 {
+			c++
+		}
+	}
+	return c
+}
+
+// HasSignatures returns true if the block has the required number of signatures
+// as specified by the S value in the header
+func (blk *Block) HasSignatures() bool {
+	return blk.SignatureCount() == blk.Header.S
+}
+
+// ProposerSigned returns true if the proposer has signed the block
+func (blk *Block) ProposerSigned() bool {
+	return len(blk.Signatures[blk.Header.ProposerIndex]) > 0
+}
+
+// SetProposer sets the proposer index given the public key.  If the public is
+// not in the signers it is added and then the index is set
+func (blk *Block) SetProposer(pubkey PublicKey) {
+	i := blk.Header.SignerIndex(pubkey)
+	if i >= 0 {
+		blk.Header.ProposerIndex = int32(i)
+		return
+	}
+
+	// Add and update index
+	blk.AddSigner(pubkey)
+	blk.Header.ProposerIndex = int32(len(blk.Header.Signers) - 1)
+}
+
 // Height returns the block height
 func (blk *Block) Height() uint32 {
 	return blk.Header.Height
@@ -90,7 +148,6 @@ func (blk *Block) AddSigner(pubkey PublicKey) {
 
 // SetSigners sets the signers resetting all signatures
 func (blk *Block) SetSigners(signers ...PublicKey) {
-
 	blk.Header.Signers = make([]PublicKey, len(signers))
 	copy(blk.Header.Signers, signers)
 
@@ -107,58 +164,26 @@ func (blk *Block) Sign(pubkey PublicKey, signature []byte) error {
 		return ErrSignerNotInBlock
 	}
 
+	if len(blk.Signatures[i]) != 0 {
+		log.Printf("FAILURE %x %x", blk.Header.Signers[i][:8], blk.Signatures[i][:8])
+		return ErrSignerAlreadySigned
+	}
+
 	blk.Signatures[i] = signature
 	return nil
 }
-
-// Sign generates and returns the signature using the keypair
-// func (blk *Block) Sign(kp keypair.KeyPair, h types.Hasher) ([]byte, error) {
-//
-// 	sh := blk.Header.Hash(h)
-// 	r, s, err := ecdsa.Sign(rand.Reader, &kp.PrivateKey, sh)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return append(r.Bytes(), s.Bytes()...), nil
-//
-// }
-
-// func (blk *Block) VerifySignatures(curve elliptic.Curve, h types.Hasher) bool {
-// 	sh := blk.Header.Hash(h)
-//
-// 	var sc int32
-//
-// 	for i := range blk.Header.Signers {
-// 		// Skip unsigned slots
-// 		if len(blk.Signatures[i]) == 0 {
-// 			continue
-// 		}
-//
-// 		//
-// 		// 		if !verifySignature(curve, blk.Header.Signers[i], blk.Signatures[i], sh) {
-// 		// 			return false
-// 		// 		}
-// 		//
-// 		// 		// Update verfied signature count
-// 		// 		sc++
-// 	}
-//
-// 	return sc >= blk.Header.S
-// }
 
 // SetTxs sets the transaction id's to the block
 func (blk *Block) SetTxs(txns []*Tx, hf hasher.Hasher) {
 	blk.Txs = make([]Digest, len(txns))
 
 	for i, tx := range txns {
-		if tx.Digest == nil {
+		if len(tx.Digest) == 0 {
 			tx.SetDigest(hf)
 		}
 
 		blk.Txs[i] = tx.Digest.Copy()
 	}
-
-	blk.Header.Root = rootHash(blk.Txs, hf)
 }
 
 // Clone clones the block
@@ -169,36 +194,10 @@ func (blk *Block) Clone() *Block {
 		Header:     &hdr,
 		Txs:        make([]Digest, len(blk.Txs)),
 		Signatures: make([][]byte, len(blk.Signatures)),
+		Digest:     blk.Digest.Copy(),
 	}
 	copy(b.Txs, blk.Txs)
 	copy(b.Signatures, blk.Signatures)
 
 	return b
-}
-
-// func verifySignature(curve elliptic.Curve, pubkey PublicKey, signature []byte, sh []byte) bool {
-//
-// 	r := big.Int{}
-// 	s := big.Int{}
-// 	sigLen := len(signature)
-// 	r.SetBytes(signature[:(sigLen / 2)])
-// 	s.SetBytes(signature[(sigLen / 2):])
-//
-// 	x := big.Int{}
-// 	y := big.Int{}
-// 	keyLen := len(pubkey)
-// 	x.SetBytes(pubkey[:(keyLen / 2)])
-// 	y.SetBytes(pubkey[(keyLen / 2):])
-//
-// 	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
-// 	return ecdsa.Verify(&rawPubKey, sh, &r, &s)
-// }
-
-func rootHash(list []Digest, h hasher.Hasher) Digest {
-	hf := h.New()
-	for _, l := range list {
-		hf.Write(l)
-	}
-	sh := hf.Sum(nil)
-	return NewDigest(h.Name(), sh)
 }

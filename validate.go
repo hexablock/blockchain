@@ -7,10 +7,77 @@ import (
 	"github.com/hexablock/blockchain/keypair"
 )
 
+func (bc *Blockchain) validateTxs(txs []*bcpb.Tx) error {
+	var err error
+
+	// Validate each tx
+	for _, tx := range txs {
+		err = bc.validateTx(tx)
+		if err != nil {
+			break
+		}
+	}
+
+	return err
+}
+
+func (bc *Blockchain) validateTx(tx *bcpb.Tx) error {
+	// Validate each tx input
+	for _, in := range tx.Inputs {
+		_, err := bc.GetTXO(in)
+		if err != nil && err != errBaseTx {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateTxInput validates the txinput including access authorization and
+// signature verification
+// func (bc *Blockchain) validateTxInput(txi *bcpb.TxInput) error {
+// 	if txi.IsBase() {
+// 		return nil
+// 	}
+//
+// 	txref, err := bc.tx.tx.Get(txi.Ref)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	var (
+// 		txo    = txref.Outputs[txi.Index]
+// 		digest = txi.Hash(bc.h)
+// 		sc     int
+// 	)
+//
+// 	for i, pk := range txi.PubKeys {
+// 		// Each key must be able to unlock the output
+// 		if !txo.PubKeyCanUnlock(pk) {
+// 			return bcpb.ErrNotAuthorized
+// 		}
+//
+// 		// Verify tx input signatures
+// 		kp := keypair.New(bc.curve, bc.h)
+// 		kp.PublicKey = pk
+// 		if kp.VerifySignature(digest, txi.Signatures[i]) {
+// 			sc++
+// 		}
+//
+// 	}
+//
+// 	if txo.Logic != nil {
+//
+// 	}
+//
+// 	return nil
+// }
+
 // validate block and associated transactions
 func (bc *Blockchain) validateBlock(blk *bcpb.Block, txs []*bcpb.Tx) error {
-	// Validate block
-	if err := bc.bv(blk); err != nil {
+	// Call the user specified block verifier/validator
+	err := bc.bv(blk.Header)
+	if err != nil {
 		return err
 	}
 
@@ -24,6 +91,11 @@ func (bc *Blockchain) validateBlock(blk *bcpb.Block, txs []*bcpb.Tx) error {
 		if !tid.Equal(txs[i].Digest) {
 			return errors.New("tx not in block")
 		}
+	}
+
+	err = bc.validateTxs(txs)
+	if err != nil {
+		return err
 	}
 
 	// Store transactions
@@ -45,6 +117,7 @@ func (bc *Blockchain) verifyBlockSignatures(blk *bcpb.Block) bool {
 
 		kp := keypair.New(bc.curve, bc.h)
 		kp.PublicKey = bcpb.PublicKey(blk.Header.Signers[i])
+		//log.Printf("%s %s", sh.String(), kp.Address())
 		if kp.VerifySignature(sh, blk.Signatures[i]) {
 			sc++
 		}
@@ -53,24 +126,3 @@ func (bc *Blockchain) verifyBlockSignatures(blk *bcpb.Block) bool {
 
 	return sc >= blk.Header.S
 }
-
-// Validate validates the N, S, Q values as well as the ProposerIndex
-// func (bc *Blockchain) validateBlockHeader(header *bcpb.BlockHeader) error {
-// 	if int32(len(header.Signers)) != header.N {
-// 		return errors.New("not enough signers")
-// 	}
-//
-// 	if header.ProposerIndex < int32(len(header.Signers)) {
-// 		return errors.New("invalid proposer index")
-// 	}
-//
-// 	q := (header.N / 2) + 1
-// 	if header.S < q {
-// 		return errors.New("invalid number of required signatures")
-// 	}
-// 	if header.Q < q {
-// 		return errors.New("invalid number of required commits")
-// 	}
-//
-// 	return nil
-// }

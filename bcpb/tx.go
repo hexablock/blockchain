@@ -6,8 +6,21 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
+
+// // TxType represents the transaction type.  This can be any arbitrary string
+// type TxType string
+//
+// // FSM returns the name of the FSM the method is attached to
+// func (t TxType) FSM() string {
+// 	return strings.Split(string(t), ".")[0]
+// }
+//
+// // Method returns just the method name
+// func (t TxType) Method() string {
+// 	return strings.Split(string(t), ".")[1]
+// }
 
 // Hash returns the hash digest of the header
 func (header *TxHeader) Hash(h hasher.Hasher) Digest {

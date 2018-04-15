@@ -3,17 +3,21 @@ package blockchain
 import (
 	"crypto/elliptic"
 
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 // Config holds the blockchain config
 type Config struct {
-	Hasher         hasher.Hasher
-	Curve          elliptic.Curve
-	BlockValidator BlockValidator
-	BlockStorage   BlockStorage
-	TxStorage      TxStorage
-	DataKeyIndex   DataKeyIndex
+	// Hash function to use
+	Hasher hasher.Hasher
+
+	// Elliptic curve for verification
+	Curve elliptic.Curve
+
+	// These need to be specified by the user and are required
+	BlockStorage BlockStorage
+	TxStorage    TxStorage
+	DataKeyIndex DataKeyIndex
 }
 
 // DefaultConfig returns a config with the default hasher and elliptic curve

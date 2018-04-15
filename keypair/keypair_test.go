@@ -8,7 +8,7 @@ import (
 
 	"github.com/hexablock/blockchain/base58"
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 func Test_KeyPair(t *testing.T) {
@@ -18,6 +18,7 @@ func Test_KeyPair(t *testing.T) {
 	b58 := base58.Encode(kp.PublicKey)
 
 	pubkey := base58.Decode(b58)
-	assert.Equal(t, kp.PublicKey, bcpb.PublicKey(pubkey))
-
+	pk := bcpb.PublicKey(pubkey)
+	assert.Equal(t, kp.PublicKey, pk)
+	assert.Equal(t, kp.Address(), pk.Address(hasher.Default()))
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 func Test_PublicKey(t *testing.T) {

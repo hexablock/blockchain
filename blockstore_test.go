@@ -5,13 +5,14 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
 	"github.com/hexablock/blockchain/stores"
+	"github.com/hexablock/hasher"
 )
 
 var testDB *badger.DB
@@ -39,6 +40,20 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func nextBlock(st *BlockStore) *bcpb.Block {
+	lid, last := st.st.Last()
+
+	blk := bcpb.NewBlock()
+	blk.Header = &bcpb.BlockHeader{
+		Height:    last.Header.Height + 1,
+		PrevBlock: lid,
+		Timestamp: time.Now().UnixNano(),
+		Nonce:     last.Header.Nonce + 1,
+	}
+
+	return blk
+}
+
 func Test_BlockStore(t *testing.T) {
 	h := hasher.Default()
 	bdb := stores.NewBadgerBlockStorage(testDB, []byte("test/"), h)
@@ -47,10 +62,14 @@ func Test_BlockStore(t *testing.T) {
 
 	// Genesis
 	btx := bcpb.NewBaseTx()
-	genesis := NewGenesisBlock([]*bcpb.Tx{btx}, h)
+	genesis := NewGenesisBlock(h)
+	genesis.SetTxs([]*bcpb.Tx{btx}, h)
+	genesis.SetHash(h)
 
 	err := bs.SetGenesis(genesis)
 	assert.Nil(t, err)
+	bs.st.SetLast(genesis.Digest)
+	bs.st.SetLastExec(genesis.Digest)
 
 	lid1, last := bdb.Last()
 	assert.Equal(t, uint32(0), last.Height())
@@ -59,7 +78,7 @@ func Test_BlockStore(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// First block
-	blk := bs.NextBlock()
+	blk := nextBlock(bs)
 	blk.SetTxs([]*bcpb.Tx{bcpb.NewBaseTx()}, h)
 
 	id, err := bs.Append(blk)
@@ -79,11 +98,13 @@ func Test_BlockStore(t *testing.T) {
 	_, err = bs.Append(&b2)
 	assert.Equal(t, errInvalidNonce, err)
 
-	b2.Header.PrevBlock = lid1
-	_, err = bs.Append(&b2)
-	assert.Equal(t, errPrevBlockMismatch, err)
-
 	b2.Header.Height = 0
 	_, err = bs.Append(&b2)
 	assert.Equal(t, errHeightMismatch, err)
+
+	b3 := nextBlock(bs)
+	b3.Header.PrevBlock = lid1
+	_, err = bs.Append(b3)
+	assert.Equal(t, ErrPrevBlockMismatch, err)
+
 }

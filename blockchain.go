@@ -2,15 +2,19 @@ package blockchain
 
 import (
 	"crypto/elliptic"
+	"errors"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/blockchain/keypair"
 	"github.com/hexablock/blockchain/stores"
+	"github.com/hexablock/hasher"
 )
+
+var errBaseTx = errors.New("base transaction")
 
 // BlockValidator is the validator function called to validate a block before
 // signatures a verfified
-type BlockValidator func(*bcpb.Block) error
+type BlockValidator func(*bcpb.BlockHeader) error
 
 // BlockStorage implements a store for ledger blocks
 type BlockStorage interface {
@@ -64,29 +68,55 @@ type DataKeyIndex interface {
 type Blockchain struct {
 	h     hasher.Hasher
 	curve elliptic.Curve
-	// block validator function
+	// Block validation function
 	bv BlockValidator
 
 	blk *BlockStore
 	tx  *TxStore
 }
 
-// New instantiates a new blockchain
+// New instantiates a new blockchain.  By default block validation is disabled
 func New(conf *Config) *Blockchain {
-	bc := &Blockchain{
-		conf.Hasher,
-		conf.Curve,
-		conf.BlockValidator,
-		&BlockStore{conf.BlockStorage},
-		&TxStore{conf.TxStorage, conf.DataKeyIndex},
+	return &Blockchain{
+		// Hash function
+		h: conf.Hasher,
+		// Elliptic curve
+		curve: conf.Curve,
+		// Disable block validation
+		bv: func(*bcpb.BlockHeader) error { return nil },
+		// Block store
+		blk: &BlockStore{conf.BlockStorage},
+		// Tx store
+		tx: &TxStore{conf.TxStorage, conf.DataKeyIndex},
 	}
+}
 
-	if bc.bv == nil {
-		// Set default block validator
-		bc.bv = func(*bcpb.Block) error { return nil }
-	}
+// SetBlockValidator sets the block validator function
+func (bc *Blockchain) SetBlockValidator(bv BlockValidator) {
+	bc.bv = bv
+}
 
-	return bc
+// Hasher returns the configured hash function used by the block chain.
+func (bc *Blockchain) Hasher() hasher.Hasher {
+	return bc.h
+}
+
+// NewTxInput returns a new TxInput for the given key to use in a tx
+func (bc *Blockchain) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
+	return bc.tx.NewTxInput(key)
+}
+
+// Genesis returns the genesis block or nil if the blockchain has not been
+// initialized
+func (bc *Blockchain) Genesis() *bcpb.Block {
+	_, b := bc.blk.st.Genesis()
+	return b
+}
+
+// Last returns the last commited block in the chain
+func (bc *Blockchain) Last() *bcpb.Block {
+	_, last := bc.blk.st.Last()
+	return last
 }
 
 // SetGenesis sets the genesis block and the associated transactions
@@ -98,10 +128,16 @@ func (bc *Blockchain) SetGenesis(genesis *bcpb.Block, txs []*bcpb.Tx) error {
 
 	err = bc.blk.SetGenesis(genesis)
 	if err == nil {
-		err = bc.tx.indexTxos(txs)
+		// If we succeed we set the last block digest to the zero hash
+		err = bc.blk.st.SetLast(bcpb.NewZeroDigest(bc.h))
 	}
 
 	return err
+}
+
+// SetLastExec marks the given digest as the last executed block
+func (bc *Blockchain) SetLastExec(digest bcpb.Digest) error {
+	return bc.blk.st.SetLastExec(digest)
 }
 
 // Append appends the block and txs to the ledger.  The supplied transactions
@@ -125,6 +161,76 @@ func (bc *Blockchain) Commit(id bcpb.Digest) error {
 		return err
 	}
 
+	// Ensure the blocks previous hash matches that of the last block
+	lid, _ := bc.blk.st.Last()
+	if !blk.Header.PrevBlock.Equal(lid) {
+		return ErrPrevBlockMismatch
+	}
+
+	// Set the given id as the last block
+	err = bc.blk.st.SetLast(id)
+	if err == nil {
+		// Index the tx outputs
+		err = bc.indexTxos(blk)
+	}
+
+	return err
+}
+
+// GetTXO returns the txo referenced by the input or an error if it fails
+// validation, access etc.
+func (bc *Blockchain) GetTXO(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
+	if txi.IsBase() {
+		return nil, errBaseTx
+	}
+
+	txref, err := bc.tx.tx.Get(txi.Ref)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		txo    = txref.Outputs[txi.Index]
+		digest = txi.Hash(bc.h)
+		sc     int
+	)
+
+	for i, pk := range txi.PubKeys {
+		// Each key must be able to unlock the output
+		if !txo.PubKeyCanUnlock(pk) {
+			return nil, bcpb.ErrNotAuthorized
+		}
+
+		// Verify tx input signatures
+		kp := keypair.New(bc.curve, bc.h)
+		kp.PublicKey = pk
+		if kp.VerifySignature(digest, txi.Signatures[i]) {
+			sc++
+		}
+
+	}
+
+	if txo.Logic != nil {
+
+	}
+
+	return txo, nil
+}
+
+// GetTXOByDataKey returns the TxOutput for the given key.  It is the DataKey's
+// last state
+func (bc *Blockchain) GetTXOByDataKey(key bcpb.DataKey) (*bcpb.TxOutput, error) {
+	tx, i, err := bc.tx.GetDataKeyTx(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Outputs[i], nil
+}
+
+func (bc *Blockchain) indexTxos(blk *bcpb.Block) error {
+	var err error
+
 	// Get txs in the block
 	txs := make([]*bcpb.Tx, len(blk.Txs))
 	for i, tid := range blk.Txs {
@@ -134,18 +240,6 @@ func (bc *Blockchain) Commit(id bcpb.Digest) error {
 		}
 	}
 
-	// Ensure the blocks previous hash matches that of the last block
-	lid, _ := bc.blk.st.Last()
-	if !blk.Header.PrevBlock.Equal(lid) {
-		return errPrevBlockMismatch
-	}
-
-	// Set the given id as the last block
-	err = bc.blk.st.SetLast(id)
-	if err == nil {
-		// Index the tx outputs
-		err = bc.tx.indexTxos(txs)
-	}
-
-	return err
+	// Index the tx outputs
+	return bc.tx.indexTxos(txs)
 }

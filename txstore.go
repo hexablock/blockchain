@@ -12,30 +12,15 @@ type TxStore struct {
 	dki DataKeyIndex
 }
 
-// Set validates the given transaction and sets it to the store
-func (st *TxStore) Set(tx *bcpb.Tx) error {
-	err := st.validateTxInputs(tx)
-	if err == nil {
-		err = st.tx.Set(tx)
-	}
-
-	return err
-}
-
-// SetBatch validates the transaction inputs and sets them to the
+// SetBatch validates the transaction are not spent before setting them to the
 // store
 func (st *TxStore) SetBatch(txs []*bcpb.Tx) error {
 	var (
 		unspent = st.FindUnspent()
-		err     error
+		//err     error
 	)
 
 	for _, tx := range txs {
-		// Check input access to the referenced output
-		err = st.validateTxInputs(tx)
-		if err != nil {
-			return err
-		}
 
 		// Make sure inputs haven't been spent
 		for _, in := range tx.Inputs {
@@ -118,31 +103,20 @@ func (st *TxStore) GetDataKeyTx(key bcpb.DataKey) (*bcpb.Tx, int32, error) {
 	return tx, i, err
 }
 
-// check if the specified public keys in the inputs have access to the
-// referenced outputs
-func (st *TxStore) validateTxInputs(tx *bcpb.Tx) error {
-
-	for _, in := range tx.Inputs {
-		if in.IsBase() {
-			continue
-		}
-
-		txref, err := st.tx.Get(in.Ref)
-		if err != nil {
-			return err
-		}
-
-		output := txref.Outputs[in.Index]
-		// Each key must be able to unlock
-		for j := range in.PubKeys {
-			if !output.PubKeyCanUnlock(in.PubKeys[j]) {
-				return bcpb.ErrNotAuthorized
-			}
-		}
-
+// NewTxInput returns a new TxInput for the DataKey.  This is used to contruct
+// transaction inputs
+func (st *TxStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
+	ref, i, err := st.dki.Get(key)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	tx, err := st.tx.Get(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return bcpb.NewTxInput(ref, i, tx.Outputs[i].PubKeys), nil
 }
 
 func (st *TxStore) indexTxos(txs []*bcpb.Tx) error {

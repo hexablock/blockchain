@@ -8,7 +8,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 const (
@@ -47,10 +47,6 @@ func NewBadgerBlockStorage(db *badger.DB, keyPrefix []byte, h hasher.Hasher) *Ba
 		prefix: append(keyPrefix, []byte(blkSubkeyPrefix)...),
 	}
 
-}
-
-func (s *BadgerBlockStorage) Close() error {
-	return s.db.Close()
 }
 
 func (st *BadgerBlockStorage) Get(id bcpb.Digest) (*bcpb.Block, error) {
@@ -122,8 +118,8 @@ func (st *BadgerBlockStorage) Add(b *bcpb.Block) (bcpb.Digest, error) {
 	}
 
 	err = st.db.Update(func(txn *badger.Txn) error {
-		_, err := txn.Get(key)
-		if err == nil {
+		_, er := txn.Get(key)
+		if er == nil {
 			return ErrBlockExists
 		}
 
@@ -145,9 +141,15 @@ func (st *BadgerBlockStorage) SetLast(id bcpb.Digest) error {
 	})
 }
 
+// SetLastExec checks if the given digest exists and marks it as the last
+// executed block
 func (st *BadgerBlockStorage) SetLastExec(id bcpb.Digest) error {
 	return st.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(st.getkey([]byte(blkExecSubkeyPrefix)), id)
+		_, err := txn.Get(st.getkey(id))
+		if err == nil {
+			err = txn.Set(st.getkey([]byte(blkExecSubkeyPrefix)), id)
+		}
+		return err
 	})
 }
 
@@ -193,6 +195,10 @@ func (st *BadgerBlockStorage) Iter(f BlockIterator) error {
 	})
 }
 
+func (st *BadgerBlockStorage) Close() error {
+	return st.db.Close()
+}
+
 func (st *BadgerBlockStorage) getkey(key []byte) []byte {
 	return append(st.prefix, key...)
 }
@@ -212,15 +218,15 @@ func (st *BadgerBlockStorage) getPointerBlock(id []byte, txn *badger.Txn) (bcpb.
 	if err != nil {
 		return nil, nil, err
 	}
-	lbId, err := lItm.Value()
+	lbid, err := lItm.Value()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	lid := bcpb.Digest(lbId)
+	lid := bcpb.Digest(lbid)
 
-	lbIdKey := st.getkey(lbId)
-	lbItm, err := txn.Get(lbIdKey)
+	lbidKey := st.getkey(lbid)
+	lbItm, err := txn.Get(lbidKey)
 	if err != nil {
 		return lid, nil, err
 	}

@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
 	"github.com/hexablock/blockchain/keypair"
 	"github.com/hexablock/blockchain/stores"
+	"github.com/hexablock/hasher"
 )
 
 func Test_TxStore(t *testing.T) {
@@ -22,7 +22,7 @@ func Test_TxStore(t *testing.T) {
 	btx := bcpb.NewBaseTx()
 	btx.SetDigest(h)
 
-	err := st.Set(btx)
+	err := st.tx.Set(btx)
 	assert.Nil(t, err)
 
 	_, err = st.tx.Get(btx.Digest)
@@ -58,7 +58,7 @@ func Test_TxStore_Find(t *testing.T) {
 	txn.AddOutput(txo)
 
 	txn.SetDigest(h)
-	err = txstore.Set(txn)
+	err = txstore.tx.Set(txn)
 	assert.Nil(t, err)
 	//fmt.Println("ADDED", txids[0].String())
 
@@ -77,7 +77,7 @@ func Test_TxStore_Find(t *testing.T) {
 	tx1.AddOutput(txo1)
 
 	tx1.SetDigest(h)
-	err = txstore.Set(tx1)
+	err = txstore.tx.Set(tx1)
 	assert.Nil(t, err)
 	//fmt.Println("ADDED", txids[1].String())
 
@@ -118,7 +118,7 @@ func Test_TxStore_Find(t *testing.T) {
 		txn.AddOutput(txo)
 		txn.SetDigest(h)
 		txids[j] = txn.Digest.Copy()
-		txstore.Set(txn)
+		txstore.tx.Set(txn)
 
 		j++
 	}

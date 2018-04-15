@@ -4,23 +4,29 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 //const version byte = 0x00
 const addressChecksumLen = 4
 
+// KeyPair holds a public private keypair
 type KeyPair struct {
-	h          hasher.Hasher
-	curve      elliptic.Curve
+	h     hasher.Hasher
+	curve elliptic.Curve
+	// Raw private and public key
 	PrivateKey ecdsa.PrivateKey
-	PublicKey  bcpb.PublicKey
+	// Public key bytes for the private key.
+	PublicKey bcpb.PublicKey
 }
 
+// New returns a new empty keypair populated with the curve and hasher
 func New(curve elliptic.Curve, h hasher.Hasher) *KeyPair {
 	return &KeyPair{
 		h:     h,
@@ -30,20 +36,24 @@ func New(curve elliptic.Curve, h hasher.Hasher) *KeyPair {
 
 // Generate creates and returns a KeyPair
 func Generate(curve elliptic.Curve, h hasher.Hasher) (*KeyPair, error) {
-	private, err := ecdsa.GenerateKey(curve, rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	pubKey := append(private.PublicKey.X.Bytes(), private.PublicKey.Y.Bytes()...)
+	kp := New(curve, h)
+	err := kp.generate()
+	return kp, err
+}
 
-	kp := &KeyPair{
-		h,
-		curve,
-		*private,
-		bcpb.PublicKey(pubKey),
+func (w *KeyPair) generate() error {
+	private, err := ecdsa.GenerateKey(w.curve, rand.Reader)
+	if err == nil {
+		w.PrivateKey = *private
+		w.setPublicKey()
 	}
+	return err
+}
 
-	return kp, nil
+func (w *KeyPair) setPublicKey() {
+	priv := w.PrivateKey
+	pubkey := append(priv.PublicKey.X.Bytes(), priv.PublicKey.Y.Bytes()...)
+	w.PublicKey = bcpb.PublicKey(pubkey)
 }
 
 // Algorithm returns the keypair algorithm
@@ -88,51 +98,30 @@ func (w KeyPair) VerifySignature(digest bcpb.Digest, signature []byte) bool {
 	return ecdsa.Verify(&rawPubKey, digest, &r, &s)
 }
 
-// // Address returns KeyPair address.
-// func (w KeyPair) Address() []byte {
-// 	pubKeyHash := w.pubkeyHashRipeMD()
-//
-// 	versionedPayload := append([]byte{version}, pubKeyHash...)
-// 	checksum := checksum(versionedPayload, w.h.New())
-//
-// 	fullPayload := append(versionedPayload, checksum...)
-// 	address := base58.Encode(fullPayload)
-//
-// 	return address
-// }
+// Save x509 marshals the key and writes it to the given path
+func (w KeyPair) Save(fpath string) error {
+	data, err := x509.MarshalECPrivateKey(&w.PrivateKey)
+	if err != nil {
+		return err
+	}
 
-// func (w KeyPair) pubkeyHashRipeMD() []byte {
-// 	// Hash public key with supplied hash function
-// 	h := w.h.New()
-// 	h.Write(w.PublicKey)
-// 	sh := h.Sum(nil)
-//
-// 	// Ripemd the hash
-// 	RIPEMD160Hasher := ripemd160.New()
-// 	RIPEMD160Hasher.Write(sh[:])
-// 	return RIPEMD160Hasher.Sum(nil)
-// }
-//
-// func ValidateAddress(address string, h hash.Hash) bool {
-// 	pubKeyHash := base58.Decode([]byte(address))
-// 	actualChecksum := pubKeyHash[len(pubKeyHash)-addressChecksumLen:]
-// 	version := pubKeyHash[0]
-// 	pubKeyHash = pubKeyHash[1 : len(pubKeyHash)-addressChecksumLen]
-// 	targetChecksum := checksum(append([]byte{version}, pubKeyHash...), h)
-//
-// 	return bytes.Compare(actualChecksum, targetChecksum) == 0
-// }
+	return ioutil.WriteFile(fpath, data, 0644)
+}
 
-// // Checksum generates a checksum for a public key
-// func checksum(payload []byte, h hash.Hash) []byte {
-// 	// First hash
-// 	h.Write(payload)
-// 	sh1 := h.Sum(nil)
-//
-// 	// 2nd hash i.e. Hash of hash
-// 	h.Reset()
-// 	h.Write(sh1)
-// 	sh2 := h.Sum(nil)
-//
-// 	return sh2[:addressChecksumLen]
-// }
+// FromFile loads an existing keypair from the given filepath
+func FromFile(fpath string) (*KeyPair, error) {
+	der, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := x509.ParseECPrivateKey(der)
+	if err != nil {
+		return nil, err
+	}
+
+	kp := &KeyPair{PrivateKey: *key, curve: key.Curve, h: hasher.Default()}
+	kp.setPublicKey()
+
+	return kp, nil
+}

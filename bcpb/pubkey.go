@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/hexablock/blockchain/base58"
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 const addressChecksumLen = 4

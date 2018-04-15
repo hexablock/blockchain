@@ -4,30 +4,7 @@ package bcpb;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 
-// enum BlockState {
-//     INIT      = 0;
-//     // Waiting for signers
-//     SIGN      = 1;
-//     // Signing complete
-//     SIGNED    = 2;
-//     // Block has been generated, submitted & broadcasted
-//     GEN = 3;
-//     // Waiting for enough commits
-//     COMMIT    = 4;
-//     // Quorum blocks committed. Exec takes place after this
-//     COMMITED  = 5;
-// }
-
-// enum Consistency {
-//     // Return immediately
-//     NONE = 0;
-//     // Return immediately.  This is a temp placeholder
-//     WEAK = 1;
-//     // Return after ratification. This maps to BlockState_COMMITTED
-//     RATIFIED = 2;
-//     // Return after execution is complete
-//     EXECD = 3;
-// }
+option go_package = "github.com/hexablock/blockchain/bcpb";
 
 message BlockHeader {
     // Block height in the chain. Genesis will always be 0
@@ -62,6 +39,8 @@ message Block {
 
     // Signatures associated to each pubkey
     repeated bytes Signatures = 3;
+
+    bytes Digest = 4 [(gogoproto.casttype) = "Digest"];
 }
 
 message TxHeader {
@@ -77,14 +56,17 @@ message TxHeader {
 
 // TxnInput contains all data needed to use the referenced output
 message TxInput {
-    // Previous txn. Empty if no previous output needed as input
+    // Previous tx. Empty if no ref is specificed along with the index
+    // then it is considered a base tx
     bytes Ref = 1 [(gogoproto.casttype) = "Digest"];
 
     // Output index in txn. -1 if no previous output needed as input
     int32 Index = 2;
 
     // Public key as set in the output tx being referenced and used to verify
-    // the signature below TODO: accept multiple for multi-sig
+    // the signature below.  These are strictly used to assist in the
+    // verification of signatures and are not necessarily required to be
+    // specified as in the input
     repeated bytes PubKeys = 3 [(gogoproto.casttype) = "PublicKey"];
 
 
@@ -125,28 +107,3 @@ message Tx {
 
     bytes Digest = 4 [(gogoproto.casttype) = "Digest"];
 }
-
-// All fields except type are optional and used based on context
-// message Message {
-//     enum Type {
-//         BOOTSTRAP = 0; // Bootstrap root ledger
-//         PROPOSAL = 2;  // New block proposal
-//         SIGNATURE = 3; // Request announcing block signed
-//         GENERATED = 4; // Request announcing block generation
-//         REPLAY = 5;    // Block replay to get the log to the current state
-//     }
-//
-//     // Type of message
-//     Type type = 1;
-//
-//     // Block in question
-//     Block block = 2;
-//
-//     // Entity who sent the message where applicable
-//     bytes from = 3 [(gogoproto.casttype) = "PublicKey"];
-//
-//     // Tx's part of the block that are in question
-//     repeated Tx txs = 4;
-//
-//     Consistency consistency = 5;
-// }

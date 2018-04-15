@@ -6,7 +6,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/hexablock/blockchain/hasher"
+	"github.com/hexablock/hasher"
 )
 
 // Digest is a hash with the hash function used. The format is as follows
@@ -66,4 +66,27 @@ func ParseDigest(str string) (Digest, error) {
 	}
 
 	return NewDigest(str[:i], sh), nil
+}
+
+// Digests is a list of digests of the same hash function
+type Digests []Digest
+
+// Root calculates the root hash of the transactions  TODO: merkle tree
+func (digests Digests) Root() (Digest, error) {
+	if digests == nil || len(digests) == 0 {
+		return nil, nil
+	}
+
+	// May need to handle this is a better way
+	h, err := hasher.New(digests[0].Algorithm())
+	if err != nil {
+		return nil, err
+	}
+
+	hf := h.New()
+	for _, l := range digests {
+		hf.Write(l)
+	}
+	sh := hf.Sum(nil)
+	return NewDigest(h.Name(), sh), nil
 }
