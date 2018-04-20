@@ -9,19 +9,6 @@ import (
 	"github.com/hexablock/hasher"
 )
 
-// // TxType represents the transaction type.  This can be any arbitrary string
-// type TxType string
-//
-// // FSM returns the name of the FSM the method is attached to
-// func (t TxType) FSM() string {
-// 	return strings.Split(string(t), ".")[0]
-// }
-//
-// // Method returns just the method name
-// func (t TxType) Method() string {
-// 	return strings.Split(string(t), ".")[1]
-// }
-
 // Hash returns the hash digest of the header
 func (header *TxHeader) Hash(h hasher.Hasher) Digest {
 	hf := h.New()
@@ -96,47 +83,15 @@ func (tx *Tx) SetDigest(h hasher.Hasher) {
 	tx.Digest = tx.Header.Hash(h)
 }
 
-// Hash returns the hash digest of the the tx
-// func (tx *Tx) Hash(h types.Hasher) Digest {
-// 	tx.Header.Data = tx.DataHash(h)
-// 	return tx.Header.Hash(h)
-// }
-
 // IsBase returns true if this is a base tx i.e. inputs do not reference any
 // outputs
 func (tx *Tx) IsBase() bool {
 	return tx.Inputs[0].IsBase()
 }
 
-// SignInputs signs each input of a Transaction
-// func (tx *Tx) SignInputs(kp keypair.KeyPair, h types.Hasher) error {
-// 	// if tx.IsBase() {
-// 	// 	return nil
-// 	// }
-//
-// 	var err error
-// 	for i := range tx.Inputs {
-// 		if err = tx.Inputs[i].Sign(kp, h); err != nil {
-// 			break
-// 		}
-// 	}
-//
-// 	return err
-// }
-
-// VerifyInputSignatures verifies all signatures for all inputs
-// func (tx *Tx) VerifyInputSignatures(curve elliptic.Curve, h types.Hasher) error {
-// 	for _, in := range tx.Inputs {
-// 		if !in.VerifySignatures(curve, h) {
-// 			return ErrSignatureVerificationFailed
-// 		}
-// 	}
-// 	return nil
-// }
-
-// PubKeyCanUnlock return true if the public key is one of the public keys
+// HasPublicKey return true if the public key is one of the public keys
 // listed in the output
-func (txo *TxOutput) PubKeyCanUnlock(pk PublicKey) bool {
+func (txo *TxOutput) HasPublicKey(pk PublicKey) bool {
 	if len(txo.PubKeys) == 0 {
 		return true
 	}
@@ -147,6 +102,17 @@ func (txo *TxOutput) PubKeyCanUnlock(pk PublicKey) bool {
 		}
 	}
 
+	return false
+}
+
+// RemovePublicKey removes the public key returning true if it was removed
+func (txo *TxOutput) RemovePublicKey(pk PublicKey) bool {
+	for i := range txo.PubKeys {
+		if txo.PubKeys[i].Equal(pk) {
+			txo.PubKeys = append(txo.PubKeys[0:i], txo.PubKeys[i+1:]...)
+			return true
+		}
+	}
 	return false
 }
 

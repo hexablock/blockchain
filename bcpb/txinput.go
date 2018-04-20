@@ -81,6 +81,23 @@ func (txi *TxInput) HasPubKey(pubkey []byte) (int, bool) {
 	return -1, false
 }
 
+// AddPubKey adds a public key to the input if it does not exist.  It also
+// adjusts the signatures slices accordingly if the addition is successful
+func (txi *TxInput) AddPubKey(pk PublicKey) bool {
+	if _, ok := txi.HasPubKey(pk); ok {
+		return false
+	}
+
+	sigs := make([][]byte, len(txi.Signatures)+1)
+	copy(sigs[:len(txi.PubKeys)], txi.Signatures[:len(txi.PubKeys)])
+	copy(sigs[len(txi.PubKeys)+1:], txi.Signatures[len(txi.PubKeys):])
+
+	txi.PubKeys = append(txi.PubKeys, pk)
+	txi.Signatures = sigs
+
+	return true
+}
+
 // AddArgs adds inputs args to the txinput. Args are always after all signatures
 func (txi *TxInput) AddArgs(args ...[]byte) {
 	txi.Signatures = append(txi.Signatures, args...)

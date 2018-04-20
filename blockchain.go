@@ -10,11 +10,18 @@ import (
 	"github.com/hexablock/hasher"
 )
 
-var errBaseTx = errors.New("base transaction")
+var (
+	errBaseTx                 = errors.New("base transaction")
+	errRequiresMoreSignatures = errors.New("requires more signatures")
+)
 
 // BlockValidator is the validator function called to validate a block before
 // signatures a verfified
 type BlockValidator func(*bcpb.BlockHeader) error
+
+// TxInputOutputValidator validates a single input.  It takes the referenced
+// output and the associated input as arguments. TxOutput <- TxInput
+type TxInputOutputValidator func(ref *bcpb.TxOutput, in *bcpb.TxInput) error
 
 // BlockStorage implements a store for ledger blocks
 type BlockStorage interface {
@@ -178,7 +185,8 @@ func (bc *Blockchain) Commit(id bcpb.Digest) error {
 }
 
 // GetTXO returns the txo referenced by the input or an error if it fails
-// validation, access etc.
+// validation, access etc.  This is the main function that performs checking
+// if inputs are valid
 func (bc *Blockchain) GetTXO(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
 	if txi.IsBase() {
 		return nil, errBaseTx
@@ -192,26 +200,32 @@ func (bc *Blockchain) GetTXO(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
 	var (
 		txo    = txref.Outputs[txi.Index]
 		digest = txi.Hash(bc.h)
-		sc     int
+		sc     uint8
 	)
 
-	for i, pk := range txi.PubKeys {
-		// Each key must be able to unlock the output
-		if !txo.PubKeyCanUnlock(pk) {
-			return nil, bcpb.ErrNotAuthorized
-		}
+	// Check current txo public keys and verify the input signatures
+	if len(txo.PubKeys) > 0 {
+		for i, pk := range txi.PubKeys {
+			// Each key must be able to unlock the output
+			if !txo.HasPublicKey(pk) {
+				return nil, bcpb.ErrNotAuthorized
+			}
 
-		// Verify tx input signatures
-		kp := keypair.New(bc.curve, bc.h)
-		kp.PublicKey = pk
-		if kp.VerifySignature(digest, txi.Signatures[i]) {
-			sc++
-		}
+			// Verify tx input signatures
+			kp := keypair.New(bc.curve, bc.h)
+			kp.PublicKey = pk
+			if kp.VerifySignature(digest, txi.Signatures[i]) {
+				sc++
+			}
 
+		}
 	}
 
-	if txo.Logic != nil {
-
+	if len(txo.Logic) > 0 {
+		reqSigs := uint8(txo.Logic[0])
+		if sc < reqSigs {
+			return nil, errRequiresMoreSignatures
+		}
 	}
 
 	return txo, nil

@@ -46,7 +46,7 @@ func (st *TxStore) FindUTX(pubkey bcpb.PublicKey) map[string]bcpb.Tx {
 	// Filter by public key
 	for k, v := range unspent {
 		for _, out := range v.Outputs {
-			if !out.PubKeyCanUnlock(pubkey) {
+			if !out.HasPublicKey(pubkey) {
 				delete(unspent, k)
 				break
 			}

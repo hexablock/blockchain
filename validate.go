@@ -28,6 +28,9 @@ func (bc *Blockchain) validateTx(tx *bcpb.Tx) error {
 		if err != nil && err != errBaseTx {
 			return err
 		}
+
+		// TODO: Validate
+
 	}
 
 	return nil
