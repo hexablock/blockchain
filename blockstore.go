@@ -49,17 +49,6 @@ func (bc *blockStore) SetGenesis(genesis *bcpb.Block) error {
 		return err
 	}
 
-	// Update all references to genesis block
-	// if err = store.SetGenesis(gid); err != nil {
-	// 	return err
-	// }
-	// if err = store.SetLast(gid); err != nil {
-	// 	return err
-	// }
-	// if err = store.SetLastExec(gid); err != nil {
-	// 	return err
-	// }
-
 	return store.SetGenesis(gid)
 }
 
