@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func nextBlock(st *BlockStore) *bcpb.Block {
+func nextBlock(st *blockStore) *bcpb.Block {
 	lid, last := st.st.Last()
 
 	blk := bcpb.NewBlock()
@@ -58,7 +58,7 @@ func Test_BlockStore(t *testing.T) {
 	h := hasher.Default()
 	bdb := stores.NewBadgerBlockStorage(testDB, []byte("test/"), h)
 
-	bs := &BlockStore{bdb}
+	bs := &blockStore{bdb}
 
 	// Genesis
 	btx := bcpb.NewBaseTx()

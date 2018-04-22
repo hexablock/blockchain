@@ -17,7 +17,7 @@ import (
 func Test_TxStore(t *testing.T) {
 	h := hasher.Default()
 	bst := stores.NewBadgerTxStorage(testDB, []byte("test/"))
-	st := &TxStore{bst, nil}
+	st := &txStore{bst, nil}
 
 	btx := bcpb.NewBaseTx()
 	btx.SetDigest(h)
@@ -38,7 +38,7 @@ func Test_TxStore_Find(t *testing.T) {
 	defer db.Close()
 
 	bst := stores.NewBadgerTxStorage(db, []byte("txfinder/"))
-	txstore := &TxStore{bst, nil}
+	txstore := &txStore{bst, nil}
 
 	h := hasher.Default()
 	kp1, _ := keypair.Generate(elliptic.P256(), h)

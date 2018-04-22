@@ -7,14 +7,14 @@ import (
 )
 
 // TxStore adds ledger logic around the store
-type TxStore struct {
+type txStore struct {
 	tx  TxStorage
 	dki DataKeyIndex
 }
 
 // SetBatch validates the transaction are not spent before setting them to the
 // store
-func (st *TxStore) SetBatch(txs []*bcpb.Tx) error {
+func (st *txStore) SetBatch(txs []*bcpb.Tx) error {
 	unspent := st.FindUnspent()
 
 	for _, tx := range txs {
@@ -37,7 +37,7 @@ func (st *TxStore) SetBatch(txs []*bcpb.Tx) error {
 }
 
 // FindUTX finds transaction with unused outputs for the given public key
-func (st *TxStore) FindUTX(pubkey bcpb.PublicKey) map[string]bcpb.Tx {
+func (st *txStore) FindUTX(pubkey bcpb.PublicKey) map[string]bcpb.Tx {
 	// Get all unspent
 	unspent := st.FindUnspent()
 	// Filter by public key
@@ -55,7 +55,7 @@ func (st *TxStore) FindUTX(pubkey bcpb.PublicKey) map[string]bcpb.Tx {
 
 // FindUnspent finds all transactions whose outputs are not references by any
 // inputs
-func (st *TxStore) FindUnspent() map[string]bcpb.Tx {
+func (st *txStore) FindUnspent() map[string]bcpb.Tx {
 	unspent := make(map[string]bcpb.Tx)
 	spent := make(map[string]struct{})
 
@@ -90,7 +90,7 @@ func (st *TxStore) FindUnspent() map[string]bcpb.Tx {
 
 // GetDataKeyTx returns the last transaction and output index associated to the
 // DataKey.  This is the latest state of the data key
-func (st *TxStore) GetDataKeyTx(key bcpb.DataKey) (*bcpb.Tx, int32, error) {
+func (st *txStore) GetDataKeyTx(key bcpb.DataKey) (*bcpb.Tx, int32, error) {
 	ref, i, err := st.dki.Get(key)
 	if err != nil {
 		return nil, -1, err
@@ -102,7 +102,7 @@ func (st *TxStore) GetDataKeyTx(key bcpb.DataKey) (*bcpb.Tx, int32, error) {
 
 // NewTxInput returns a new TxInput for the DataKey.  This is used to contruct
 // transaction inputs
-func (st *TxStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
+func (st *txStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
 	ref, i, err := st.dki.Get(key)
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (st *TxStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
 	return bcpb.NewTxInput(ref, i, tx.Outputs[i].PubKeys), nil
 }
 
-func (st *TxStore) indexTxos(txs []*bcpb.Tx) error {
+func (st *txStore) indexTxos(txs []*bcpb.Tx) error {
 	for _, tx := range txs {
 		for i, txo := range tx.Outputs {
 			err := st.dki.Set(txo.DataKey, tx.Digest, int32(i))

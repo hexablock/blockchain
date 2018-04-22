@@ -77,8 +77,8 @@ type Blockchain struct {
 	// Block validation function
 	bv BlockValidator
 
-	blk *BlockStore
-	tx  *TxStore
+	blk *blockStore
+	tx  *txStore
 }
 
 // New instantiates a new blockchain.  By default block validation is disabled
@@ -91,9 +91,9 @@ func New(conf *Config) *Blockchain {
 		// Disable block validation
 		bv: func(*bcpb.BlockHeader) error { return nil },
 		// Block store
-		blk: &BlockStore{conf.BlockStorage},
+		blk: &blockStore{conf.BlockStorage},
 		// Tx store
-		tx: &TxStore{conf.TxStorage, conf.DataKeyIndex},
+		tx: &txStore{conf.TxStorage, conf.DataKeyIndex},
 	}
 }
 

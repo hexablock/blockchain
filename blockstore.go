@@ -29,13 +29,13 @@ func NewGenesisBlock(h hasher.Hasher) *bcpb.Block {
 }
 
 // BlockStore adds ledger logic around the block storage
-type BlockStore struct {
+type blockStore struct {
 	st BlockStorage
 }
 
 // SetGenesis sets the genesis block for the blockchain.  This can only be called
 // once
-func (bc *BlockStore) SetGenesis(genesis *bcpb.Block) error {
+func (bc *blockStore) SetGenesis(genesis *bcpb.Block) error {
 	store := bc.st
 
 	// Check if we already have a genesis block
@@ -64,7 +64,7 @@ func (bc *BlockStore) SetGenesis(genesis *bcpb.Block) error {
 }
 
 // Append verifies and validates the block before appending it to the ledger
-func (bc *BlockStore) Append(blk *bcpb.Block) (bcpb.Digest, error) {
+func (bc *blockStore) Append(blk *bcpb.Block) (bcpb.Digest, error) {
 	if err := bc.checkPrevHeightNonce(blk.Header); err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (bc *BlockStore) Append(blk *bcpb.Block) (bcpb.Digest, error) {
 
 // checkPrevHeightNonce checks the height, nonce and previous block hash in that
 // order.  Height and nonce are checked first as they are cheaper operations.
-func (bc *BlockStore) checkPrevHeightNonce(blk *bcpb.BlockHeader) (err error) {
+func (bc *blockStore) checkPrevHeightNonce(blk *bcpb.BlockHeader) (err error) {
 	lid, last := bc.st.Last()
 
 	if blk.Height != last.Header.Height+1 {
