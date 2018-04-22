@@ -116,18 +116,28 @@ func (txo *TxOutput) RemovePublicKey(pk PublicKey) bool {
 	return false
 }
 
+// SetRequiredSignatures sets the required signatures to mutate the output
+func (txo *TxOutput) SetRequiredSignatures(c uint8) {
+	if len(txo.Logic) > 0 {
+		txo.Logic[0] = c
+	} else {
+		txo.Logic = []byte{c}
+	}
+}
+
 // Copy returns a copy of the transaction output
 func (txo *TxOutput) Copy() *TxOutput {
 	o := &TxOutput{
 		DataKey: txo.DataKey,
 		PubKeys: make([]PublicKey, len(txo.PubKeys)),
 		Counter: txo.Counter,
-		Logic:   txo.Logic,
+		Logic:   make([]byte, len(txo.Logic)),
 	}
 
 	for i := range txo.PubKeys {
 		o.PubKeys[i] = txo.PubKeys[i]
 	}
+	copy(o.Logic, txo.Logic)
 
 	return o
 }

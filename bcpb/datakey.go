@@ -1,6 +1,9 @@
 package bcpb
 
-import "bytes"
+import (
+	"bytes"
+	"strings"
+)
 
 // DataKey represents a data key. This is a token key as opposed to a crypto key
 // It is in the format <type>:<some uinque key in type>, where type is the
@@ -37,4 +40,13 @@ func (k DataKey) ID() []byte {
 		return nil
 	}
 	return k[i+1:]
+}
+
+// ParseDataKey parses a string DataKey
+func ParseDataKey(dk string) DataKey {
+	arr := strings.Split(dk, ":")
+	if len(arr) == 1 {
+		return NewDataKey([]byte(arr[0]), []byte{})
+	}
+	return NewDataKey([]byte(arr[0]), []byte(strings.Join(arr[1:], ":")))
 }

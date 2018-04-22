@@ -15,10 +15,7 @@ type TxStore struct {
 // SetBatch validates the transaction are not spent before setting them to the
 // store
 func (st *TxStore) SetBatch(txs []*bcpb.Tx) error {
-	var (
-		unspent = st.FindUnspent()
-		//err     error
-	)
+	unspent := st.FindUnspent()
 
 	for _, tx := range txs {
 

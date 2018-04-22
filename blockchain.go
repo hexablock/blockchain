@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/hexablock/blockchain/bcpb"
-	"github.com/hexablock/blockchain/keypair"
 	"github.com/hexablock/blockchain/stores"
 	"github.com/hexablock/hasher"
 )
@@ -184,51 +183,10 @@ func (bc *Blockchain) Commit(id bcpb.Digest) error {
 	return err
 }
 
-// GetTXO returns the txo referenced by the input or an error if it fails
-// validation, access etc.  This is the main function that performs checking
-// if inputs are valid
+// GetTXO returns the txo referenced by the TxInput. It returns an error
+// if access is not authorized or any validation fails
 func (bc *Blockchain) GetTXO(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
-	if txi.IsBase() {
-		return nil, errBaseTx
-	}
-
-	txref, err := bc.tx.tx.Get(txi.Ref)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		txo    = txref.Outputs[txi.Index]
-		digest = txi.Hash(bc.h)
-		sc     uint8
-	)
-
-	// Check current txo public keys and verify the input signatures
-	if len(txo.PubKeys) > 0 {
-		for i, pk := range txi.PubKeys {
-			// Each key must be able to unlock the output
-			if !txo.HasPublicKey(pk) {
-				return nil, bcpb.ErrNotAuthorized
-			}
-
-			// Verify tx input signatures
-			kp := keypair.New(bc.curve, bc.h)
-			kp.PublicKey = pk
-			if kp.VerifySignature(digest, txi.Signatures[i]) {
-				sc++
-			}
-
-		}
-	}
-
-	if len(txo.Logic) > 0 {
-		reqSigs := uint8(txo.Logic[0])
-		if sc < reqSigs {
-			return nil, errRequiresMoreSignatures
-		}
-	}
-
-	return txo, nil
+	return bc.validateTxInput(txi)
 }
 
 // GetTXOByDataKey returns the TxOutput for the given key.  It is the DataKey's
@@ -242,9 +200,7 @@ func (bc *Blockchain) GetTXOByDataKey(key bcpb.DataKey) (*bcpb.TxOutput, error) 
 	return tx.Outputs[i], nil
 }
 
-func (bc *Blockchain) indexTxos(blk *bcpb.Block) error {
-	var err error
-
+func (bc *Blockchain) indexTxos(blk *bcpb.Block) (err error) {
 	// Get txs in the block
 	txs := make([]*bcpb.Tx, len(blk.Txs))
 	for i, tid := range blk.Txs {

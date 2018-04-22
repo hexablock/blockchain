@@ -105,4 +105,72 @@ func Test_Blockchain(t *testing.T) {
 
 	last := bc.Last()
 	assert.Equal(t, lid, last.Digest)
+
+	// Sigs
+	tx3 := bcpb.NewTx()
+
+	txi3, err := bc.NewTxInput(bcpb.DataKey("test:key"))
+	txi3.AddPubKey(kp.PublicKey)
+
+	assert.Nil(t, err)
+	assert.False(t, txi3.IsBase())
+
+	digest := txi3.Hash(bc.Hasher())
+	sig, _ := kp.Sign(digest)
+	txi3.Sign(kp.PublicKey, sig)
+
+	tx3.AddInput(txi3)
+
+	txo3 := &bcpb.TxOutput{
+		DataKey: bcpb.DataKey("test:key"),
+		PubKeys: []bcpb.PublicKey{kp.PublicKey},
+	}
+	txo3.SetRequiredSignatures(1)
+	tx3.AddOutput(txo3)
+	tx3.SetDigest(bc.Hasher())
+
+	nb = nextBlock(bc.blk)
+	txs3 := []*bcpb.Tx{tx3}
+	nb.SetTxs(txs3, conf.Hasher)
+	nb.SetHash(bc.Hasher())
+
+	lid, err = bc.Append(nb, txs3)
+	assert.Nil(t, err)
+
+	err = bc.Commit(lid)
+	assert.Nil(t, err)
+
+	//
+	// Check logic
+	//
+	tx4 := bcpb.NewTx()
+
+	txi4, _ := bc.NewTxInput(bcpb.DataKey("test:key"))
+	txi4.AddPubKey(kp.PublicKey)
+
+	digest = txi4.Hash(bc.Hasher())
+	sig, _ = kp.Sign(digest)
+	txi4.Sign(kp.PublicKey, sig)
+
+	tx4.AddInput(txi4)
+
+	txo4 := &bcpb.TxOutput{
+		DataKey: bcpb.DataKey("test:key"),
+		PubKeys: []bcpb.PublicKey{kp.PublicKey},
+	}
+	txo4.SetRequiredSignatures(1)
+	tx4.AddOutput(txo4)
+	tx4.SetDigest(bc.Hasher())
+
+	nb = nextBlock(bc.blk)
+	txs4 := []*bcpb.Tx{tx4}
+	nb.SetTxs(txs4, conf.Hasher)
+	nb.SetHash(bc.Hasher())
+
+	lid, err = bc.Append(nb, txs4)
+	assert.Nil(t, err)
+
+	err = bc.Commit(lid)
+	assert.Nil(t, err)
+
 }
