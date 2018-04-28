@@ -8,6 +8,7 @@ import (
 )
 
 func Test_TxInput(t *testing.T) {
+
 	txi := NewTxInput(nil, -1, []PublicKey{PublicKey("foo")})
 	txi.AddArgs([]byte("bar"))
 	assert.Equal(t, 2, len(txi.Signatures))
@@ -28,4 +29,7 @@ func Test_TxInput(t *testing.T) {
 	digest := txi.Hash(hasher.Default())
 	_, err := ParseDigest(digest.String())
 	assert.Nil(t, err)
+
+	btxi := NewBaseTxInput()
+	assert.Equal(t, 0, len(btxi.Signatures))
 }

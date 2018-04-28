@@ -85,7 +85,7 @@ message TxOutput {
     // Actual data associated to the key
     bytes Data = 2;
 
-    // This is the quantity / available units of 'data'
+    // Counter incremented on each write
     int64 Counter = 3;
 
     // Recipients (plural) public key. These are check along with the logic
