@@ -86,14 +86,17 @@ message TxOutput {
     bytes Data = 2;
 
     // Counter incremented on each write
-    int64 Counter = 3;
+    //int64 Counter = 3;
+    map<string, double> Metrics = 4;
+    map<string, string> Tags    = 5;
+    repeated string Labels      = 6;
 
     // Recipients (plural) public key. These are check along with the logic
-    repeated bytes PubKeys = 4 [(gogoproto.casttype) = "PublicKey"];
+    repeated bytes PubKeys = 7 [(gogoproto.casttype) = "PublicKey"];
 
     // Defines the 'verification' logic using TxnInput.Signature as data.  This
     // is run as a check along with the public key match
-    bytes Logic = 5;
+    bytes Logic = 8;
 }
 
 
