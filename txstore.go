@@ -100,6 +100,11 @@ func (st *txStore) GetDataKeyTx(key bcpb.DataKey) (*bcpb.Tx, int32, error) {
 	return tx, i, err
 }
 
+// Get returns the transaction by the given id.
+func (st *txStore) Get(digest bcpb.Digest) (*bcpb.Tx, error) {
+	return st.tx.Get(digest)
+}
+
 // NewTxInput returns a new TxInput for the DataKey.  This is used to contruct
 // transaction inputs
 func (st *txStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
@@ -108,15 +113,16 @@ func (st *txStore) NewTxInput(key bcpb.DataKey) (*bcpb.TxInput, error) {
 		return nil, err
 	}
 
+	var txi *bcpb.TxInput
 	tx, err := st.tx.Get(ref)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		txi = bcpb.NewTxInput(ref, i, tx.Outputs[i].PubKeys)
 	}
 
-	return bcpb.NewTxInput(ref, i, tx.Outputs[i].PubKeys), nil
+	return txi, err
 }
 
-func (st *txStore) indexTxos(txs []*bcpb.Tx) error {
+func (st *txStore) indexTxsOutputs(txs []*bcpb.Tx) error {
 	for _, tx := range txs {
 		for i, txo := range tx.Outputs {
 			err := st.dki.Set(txo.DataKey, tx.Digest, int32(i))

@@ -101,11 +101,11 @@ func (w KeyPair) VerifySignature(digest bcpb.Digest, signature []byte) bool {
 // Save x509 marshals the key and writes it to the given path
 func (w KeyPair) Save(fpath string) error {
 	data, err := x509.MarshalECPrivateKey(&w.PrivateKey)
-	if err != nil {
-		return err
+	if err == nil {
+		err = ioutil.WriteFile(fpath, data, 0644)
 	}
 
-	return ioutil.WriteFile(fpath, data, 0644)
+	return err
 }
 
 // FromFile loads an existing keypair from the given filepath
@@ -115,13 +115,16 @@ func FromFile(fpath string) (*KeyPair, error) {
 		return nil, err
 	}
 
+	var kp *KeyPair
 	key, err := x509.ParseECPrivateKey(der)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		kp = &KeyPair{
+			PrivateKey: *key,
+			curve:      key.Curve,
+			h:          hasher.Default(),
+		}
+		kp.setPublicKey()
 	}
 
-	kp := &KeyPair{PrivateKey: *key, curve: key.Curve, h: hasher.Default()}
-	kp.setPublicKey()
-
-	return kp, nil
+	return kp, err
 }

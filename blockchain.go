@@ -201,15 +201,15 @@ func (bc *Blockchain) GetTXOByDataKey(key bcpb.DataKey) (*bcpb.TxOutput, error) 
 }
 
 func (bc *Blockchain) indexTxos(blk *bcpb.Block) (err error) {
-	// Get txs in the block
+	// Get txs in the block from the tx store
 	txs := make([]*bcpb.Tx, len(blk.Txs))
 	for i, tid := range blk.Txs {
-		txs[i], err = bc.tx.tx.Get(tid)
+		txs[i], err = bc.tx.Get(tid)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Index the tx outputs
-	return bc.tx.indexTxos(txs)
+	return bc.tx.indexTxsOutputs(txs)
 }

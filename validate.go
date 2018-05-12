@@ -96,7 +96,7 @@ func (bc *Blockchain) validateTxInput(txi *bcpb.TxInput) (*bcpb.TxOutput, error)
 		return nil, errBaseTx
 	}
 
-	txref, err := bc.tx.tx.Get(txi.Ref)
+	txref, err := bc.tx.Get(txi.Ref)
 	if err != nil {
 		return nil, err
 	}

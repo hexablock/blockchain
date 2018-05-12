@@ -73,7 +73,7 @@ func (index *BadgerDataKeyIndex) Set(key bcpb.DataKey, ref bcpb.Digest, idx int3
 
 // Iter iterates over all DataKeys starting at the given prefix DataKey
 func (index *BadgerDataKeyIndex) Iter(prefix bcpb.DataKey, f DataKeyIterator) error {
-	pfx := index.getkey(prefix) //append(index.prefix, prefix...)
+	pfx := index.getkey(prefix)
 
 	return index.db.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)

@@ -17,7 +17,8 @@ import (
 func Test_TxStore(t *testing.T) {
 	h := hasher.Default()
 	bst := stores.NewBadgerTxStorage(testDB, []byte("test/"))
-	st := &txStore{bst, nil}
+	ist := stores.NewBadgerDataKeyIndex(testDB, []byte("idx/"))
+	st := &txStore{bst, ist}
 
 	btx := bcpb.NewBaseTx()
 	btx.SetDigest(h)
@@ -27,6 +28,13 @@ func Test_TxStore(t *testing.T) {
 
 	_, err = st.tx.Get(btx.Digest)
 	assert.Nil(t, err)
+
+	fkey := bcpb.DataKey("foo:bar")
+	_, _, err = st.GetDataKeyTx(fkey)
+	assert.NotNil(t, err)
+
+	_, err = st.NewTxInput(fkey)
+	assert.NotNil(t, err)
 }
 
 func Test_TxStore_Find(t *testing.T) {

@@ -143,7 +143,8 @@ type Block struct {
 	Txs []Digest `protobuf:"bytes,2,rep,name=Txs,casttype=Digest" json:"Txs,omitempty"`
 	// Signatures associated to each pubkey
 	Signatures [][]byte `protobuf:"bytes,3,rep,name=Signatures" json:"Signatures,omitempty"`
-	Digest     Digest   `protobuf:"bytes,4,opt,name=Digest,proto3,casttype=Digest" json:"Digest,omitempty"`
+	// Digest of the block
+	Digest Digest `protobuf:"bytes,4,opt,name=Digest,proto3,casttype=Digest" json:"Digest,omitempty"`
 }
 
 func (m *Block) Reset()                    { *m = Block{} }
@@ -343,7 +344,8 @@ type Tx struct {
 	Header  *TxHeader   `protobuf:"bytes,1,opt,name=Header" json:"Header,omitempty"`
 	Inputs  []*TxInput  `protobuf:"bytes,2,rep,name=Inputs" json:"Inputs,omitempty"`
 	Outputs []*TxOutput `protobuf:"bytes,3,rep,name=Outputs" json:"Outputs,omitempty"`
-	Digest  Digest      `protobuf:"bytes,4,opt,name=Digest,proto3,casttype=Digest" json:"Digest,omitempty"`
+	// Transaction digest
+	Digest Digest `protobuf:"bytes,4,opt,name=Digest,proto3,casttype=Digest" json:"Digest,omitempty"`
 }
 
 func (m *Tx) Reset()                    { *m = Tx{} }

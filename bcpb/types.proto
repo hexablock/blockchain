@@ -40,6 +40,7 @@ message Block {
     // Signatures associated to each pubkey
     repeated bytes Signatures = 3;
 
+    // Digest of the block
     bytes Digest = 4 [(gogoproto.casttype) = "Digest"];
 }
 
@@ -108,5 +109,6 @@ message Tx {
 
     repeated TxOutput Outputs = 3;
 
+    // Transaction digest
     bytes Digest = 4 [(gogoproto.casttype) = "Digest"];
 }
