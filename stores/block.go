@@ -24,7 +24,8 @@ const (
 
 var (
 	// ErrBlockExists is used when writing a block that already exists
-	ErrBlockExists   = errors.New("block exists")
+	ErrBlockExists = errors.New("block exists")
+	// ErrBlockNotFound is used when a request block isn't found
 	ErrBlockNotFound = errors.New("block not found")
 )
 

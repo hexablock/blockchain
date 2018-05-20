@@ -27,11 +27,11 @@ type BadgerTxStorage struct {
 	db     *badger.DB
 }
 
+// NewBadgerTxStorage returns a new badger backed tx storage device.
 func NewBadgerTxStorage(db *badger.DB, keyPrefix []byte) *BadgerTxStorage {
 	return &BadgerTxStorage{
-		//h,
-		append(keyPrefix, []byte(txSubkeyPrefix)...),
-		db,
+		prefix: append(keyPrefix, []byte(txSubkeyPrefix)...),
+		db:     db,
 	}
 }
 
@@ -65,6 +65,8 @@ func (store *BadgerTxStorage) Get(id bcpb.Digest) (*bcpb.Tx, error) {
 
 }
 
+// Iter iterates over each transaction, calling the f for each encountered
+// tx.
 func (store *BadgerTxStorage) Iter(f func(bcpb.Tx) error) {
 	store.db.View(func(txn *badger.Txn) error {
 		iter := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -80,14 +82,14 @@ func (store *BadgerTxStorage) Iter(f func(bcpb.Tx) error) {
 
 			val, err := item.Value()
 			if err != nil {
-				log.Println("[ERR]", err)
+				log.Printf("[ERR] Failed to get value key=%q: %v", key, err)
 				continue
 			}
 
 			var tx bcpb.Tx
 			err = proto.Unmarshal(val, &tx)
 			if err != nil {
-				log.Println("[ERR]", err)
+				log.Printf("[ERR] Failed to unmarshal tx key=%q: %v", key, err)
 				continue
 			}
 
@@ -106,7 +108,6 @@ func (store *BadgerTxStorage) Set(tx *bcpb.Tx) error {
 		return err
 	}
 
-	//id := tx.Hash(store.h)
 	key := store.getkey(tx.Digest)
 	err = store.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, b)
@@ -130,7 +131,6 @@ func (store *BadgerTxStorage) SetBatch(txs []*bcpb.Tx) error {
 			return err
 		}
 
-		//id := txs[i].Hash(store.h)
 		keys[i] = store.getkey(txs[i].Digest)
 
 	}
