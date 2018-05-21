@@ -40,12 +40,15 @@ func (txo *TxOutput) SetRequiredSignatures(c uint8) {
 func (txo *TxOutput) Copy() *TxOutput {
 	o := &TxOutput{
 		DataKey: txo.DataKey,
+		Data:    make([]byte, len(txo.Data)),
 		Metrics: make(map[string]float64, len(txo.Metrics)),
 		Tags:    make(map[string]string, len(txo.Tags)),
 		Labels:  make([]string, len(txo.Labels)),
 		PubKeys: make([]PublicKey, len(txo.PubKeys)),
 		Logic:   make([]byte, len(txo.Logic)),
 	}
+
+	copy(o.Data, txo.Data)
 
 	for k, v := range txo.Metrics {
 		o.Metrics[k] = v
