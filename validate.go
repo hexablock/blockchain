@@ -99,11 +99,12 @@ func (bc *Blockchain) validateTx(tx *bcpb.Tx) error {
 func (bc *Blockchain) validateBaseTxInput(txi *bcpb.TxInput) error {
 	args := txi.Args()
 	if len(args) < 2 {
-		//return fmt.Errorf("base txi requires atleast 2 arguments: %d", len(args))
 		return nil
 	}
 
 	key := bcpb.DataKey(args[1])
+
+	// Make sure data key doesn't already exist
 	_, _, err := bc.tx.dki.Get(key)
 	if err == nil {
 		return fmt.Errorf("data key exists: %q", key)
@@ -148,9 +149,10 @@ func (bc *Blockchain) validateRegTxInput(txi *bcpb.TxInput) (*bcpb.TxOutput, err
 		return txo, nil
 	}
 
-	// Check required signatures.
 	// The first byte in Logic is the required signatures
 	reqSigs := uint8(txo.Logic[0])
+
+	// Check required signatures.
 	if sc < reqSigs {
 		return nil, errRequiresMoreSignatures
 	}

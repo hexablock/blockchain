@@ -7,8 +7,8 @@ func (txo *TxOutput) HasPublicKey(pk PublicKey) bool {
 		return true
 	}
 
-	for _, p := range txo.PubKeys {
-		if p.Equal(p) {
+	for i := range txo.PubKeys {
+		if txo.PubKeys[i].Equal(pk) {
 			return true
 		}
 	}
@@ -29,6 +29,7 @@ func (txo *TxOutput) RemovePublicKey(pk PublicKey) bool {
 
 // SetRequiredSignatures sets the required signatures to mutate the output
 func (txo *TxOutput) SetRequiredSignatures(c uint8) {
+	// Handle additional logic
 	if len(txo.Logic) > 0 {
 		txo.Logic[0] = c
 	} else {
