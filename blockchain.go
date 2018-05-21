@@ -184,9 +184,12 @@ func (bc *Blockchain) Commit(id bcpb.Digest) error {
 }
 
 // GetTXO returns the txo referenced by the TxInput. It returns an error
-// if access is not authorized or any validation fails
+// if access is not authorized, any validation fails or is a base tx
 func (bc *Blockchain) GetTXO(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
-	return bc.validateTxInput(txi)
+	if txi.IsBase() {
+		return nil, errBaseTx
+	}
+	return bc.validateRegTxInput(txi)
 }
 
 // GetTXOByDataKey returns the TxOutput for the given key.  It is the DataKey's

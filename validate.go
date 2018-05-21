@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/hexablock/blockchain/bcpb"
 	"github.com/hexablock/blockchain/keypair"
@@ -51,7 +52,6 @@ func (bc *Blockchain) verifyBlockSignatures(blk *bcpb.Block) bool {
 
 		kp := keypair.New(bc.curve, bc.h)
 		kp.PublicKey = bcpb.PublicKey(blk.Header.Signers[i])
-		//log.Printf("%s %s", sh.String(), kp.Address())
 		if kp.VerifySignature(sh, blk.Signatures[i]) {
 			sc++
 		}
@@ -78,9 +78,15 @@ func (bc *Blockchain) validateTxs(txs []*bcpb.Tx) error {
 func (bc *Blockchain) validateTx(tx *bcpb.Tx) error {
 	// Validate each tx input
 	for _, in := range tx.Inputs {
-		//_, err := bc.GetTXO(in)
-		_, err := bc.validateTxInput(in)
-		if err != nil && err != errBaseTx {
+		var err error
+
+		if in.IsBase() {
+			err = bc.validateBaseTxInput(in)
+		} else {
+			_, err = bc.validateRegTxInput(in)
+		}
+
+		if err != nil {
 			return err
 		}
 
@@ -89,12 +95,26 @@ func (bc *Blockchain) validateTx(tx *bcpb.Tx) error {
 	return nil
 }
 
+// assume second arg in base is the data key
+func (bc *Blockchain) validateBaseTxInput(txi *bcpb.TxInput) error {
+	args := txi.Args()
+	if len(args) < 2 {
+		//return fmt.Errorf("base txi requires atleast 2 arguments: %d", len(args))
+		return nil
+	}
+
+	key := bcpb.DataKey(args[1])
+	_, _, err := bc.tx.dki.Get(key)
+	if err == nil {
+		return fmt.Errorf("data key exists: %q", key)
+	}
+
+	return nil
+}
+
 // validateTxInput validates the txinput including access authorization and
 // signature verification
-func (bc *Blockchain) validateTxInput(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
-	if txi.IsBase() {
-		return nil, errBaseTx
-	}
+func (bc *Blockchain) validateRegTxInput(txi *bcpb.TxInput) (*bcpb.TxOutput, error) {
 
 	txref, err := bc.tx.Get(txi.Ref)
 	if err != nil {
