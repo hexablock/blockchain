@@ -165,7 +165,7 @@ func (blk *Block) Sign(pubkey PublicKey, signature []byte) error {
 	}
 
 	if len(blk.Signatures[i]) != 0 {
-		log.Printf("FAILURE %x %x", blk.Header.Signers[i][:8], blk.Signatures[i][:8])
+		log.Printf("[ERROR] Already signed %x %x", blk.Header.Signers[i][:8], blk.Signatures[i][:8])
 		return ErrSignerAlreadySigned
 	}
 
